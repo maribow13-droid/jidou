@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type Post = { id:number; text:string; scheduledAt:string; status:"draft"|"scheduled"|"published"|"failed"; imageUrl?:string|null; source?:string };
 type Settings = { enabled:boolean; theme:string; audience:string; tone:string; rules:string; postsPerWeek:number; postingTime:string; imageMode:string; reviewMode:boolean; nextRunAt?:string|null };
-const initial: Settings = { enabled:false, theme:"", audience:"", tone:"親しみやすく、誠実", rules:"", postsPerWeek:3, postingTime:"08:00", imageMode:"auto", reviewMode:false };
+const initial: Settings = { enabled:false, theme:"", audience:"", tone:"親しみやすく、誠実", rules:"", postsPerWeek:1, postingTime:"08:00", imageMode:"auto", reviewMode:false };
 const labels = { draft:"確認待ち", scheduled:"予約済み", published:"投稿済み", failed:"エラー" };
 
 export default function Home() {
@@ -35,12 +35,12 @@ export default function Home() {
       <section className="panel schedule-panel">
         <div className="panel-title"><div><p className="eyebrow">AUTOMATION</p><h2>投稿ペースを決める</h2></div><span className="step-badge">STEP 2</span></div>
         <div className="automation-options">
-          <label><span>投稿頻度</span><select value={settings.postsPerWeek} onChange={e=>update("postsPerWeek",Number(e.target.value))}><option value="2">週2回</option><option value="3">週3回</option><option value="5">週5回</option><option value="7">毎日</option></select></label>
+          <label><span>1日の投稿数（最大10件）</span><select value={settings.postsPerWeek} onChange={e=>update("postsPerWeek",Number(e.target.value))}>{Array.from({length:10},(_,i)=><option key={i+1} value={i+1}>1日 {i+1} 投稿</option>)}</select></label>
           <label><span>投稿時間</span><input type="time" value={settings.postingTime} onChange={e=>update("postingTime",e.target.value)}/></label>
           <label><span>画像</span><select value={settings.imageMode} onChange={e=>update("imageMode",e.target.value)}><option value="auto">AIが必要な時だけ作成</option><option value="none">画像なし</option></select></label>
           <label className="review-toggle"><span>投稿前の確認</span><button className={settings.reviewMode?"selected":""} onClick={()=>update("reviewMode",!settings.reviewMode)} type="button"><i/>{settings.reviewMode?"確認してから投稿":"完全自動で投稿"}</button></label>
         </div>
-        <div className="launch-row"><div><strong>{settings.enabled?"AIが自動で発信しています":"準備ができたら、自動運転を開始"}</strong><small>{settings.reviewMode?"AIが下書きを作り、あなたの確認後に投稿します。":"AIが内容を考え、設定したペースでThreadsへ投稿します。"}</small></div><button className={settings.enabled?"stop-button":"primary launch"} onClick={()=>save(!settings.enabled)} disabled={busy}>{busy?"設定中…":settings.enabled?"自動運転を停止":"AI自動運転を開始 →"}</button></div>
+        <div className="launch-row"><div><strong>{settings.enabled?`1日${settings.postsPerWeek}件のペースで自動発信中`:"準備ができたら、自動運転を開始"}</strong><small>{settings.reviewMode?"AIが下書きを作り、あなたの確認後に投稿します。":`AIが内容を考え、約${Math.max(1,Math.floor(24/settings.postsPerWeek))}時間おきにThreadsへ投稿します。`}</small></div><button className={settings.enabled?"stop-button":"primary launch"} onClick={()=>save(!settings.enabled)} disabled={busy}>{busy?"設定中…":settings.enabled?"自動運転を停止":"AI自動運転を開始 →"}</button></div>
       </section>
 
       <div className="stats"><article><span className="stat-icon mint">✓</span><div><small>自動投稿済み</small><strong>{counts.published}</strong><em>件</em></div></article><article><span className="stat-icon violet">◷</span><div><small>確認待ち</small><strong>{counts.drafts}</strong><em>件</em></div></article><article><span className="stat-icon coral">!</span><div><small>要確認</small><strong>{counts.failed}</strong><em>件</em></div></article></div>

@@ -21,8 +21,8 @@ export async function POST(request: Request) {
         const result = await publishToThreads({ text });
         await db.insert(posts).values({ text, scheduledAt: new Date().toISOString(), status: "published", source: "ai_auto", threadsPostId: result.id, publishedAt: new Date().toISOString() });
       }
-      const days = Math.max(1, Math.round(7 / settings.postsPerWeek));
-      const next = new Date(); next.setUTCDate(next.getUTCDate() + days);
+      const intervalMinutes = Math.max(60, Math.floor((24 * 60) / Math.min(10, Math.max(1, settings.postsPerWeek))));
+      const next = new Date(Date.now() + intervalMinutes * 60 * 1000);
       await db.update(accountSettings).set({ nextRunAt: next.toISOString(), updatedAt: new Date().toISOString() }).where(eq(accountSettings.id, 1));
     } catch (error) {
       await db.insert(posts).values({ text: "AI自動投稿の作成に失敗しました。", scheduledAt: new Date().toISOString(), status: "failed", source: "ai_auto", error: error instanceof Error ? error.message : "自動投稿に失敗しました。" });

@@ -23,7 +23,7 @@ export const accountSettings = sqliteTable("account_settings", {
   audience: text("audience").notNull().default(""),
   tone: text("tone").notNull().default("親しみやすく、誠実"),
   rules: text("rules").notNull().default(""),
-  postsPerWeek: integer("posts_per_week").notNull().default(3),
+  postsPerWeek: integer("posts_per_week").notNull().default(1),
   postingTime: text("posting_time").notNull().default("08:00"),
   imageMode: text("image_mode").notNull().default("auto"),
   reviewMode: integer("review_mode", { mode: "boolean" }).notNull().default(false),
