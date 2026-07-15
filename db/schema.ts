@@ -15,3 +15,18 @@ export const posts = sqliteTable("posts", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const accountSettings = sqliteTable("account_settings", {
+  id: integer("id").primaryKey().default(1),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  theme: text("theme").notNull().default(""),
+  audience: text("audience").notNull().default(""),
+  tone: text("tone").notNull().default("親しみやすく、誠実"),
+  rules: text("rules").notNull().default(""),
+  postsPerWeek: integer("posts_per_week").notNull().default(3),
+  postingTime: text("posting_time").notNull().default("08:00"),
+  imageMode: text("image_mode").notNull().default("auto"),
+  reviewMode: integer("review_mode", { mode: "boolean" }).notNull().default(false),
+  nextRunAt: text("next_run_at"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
