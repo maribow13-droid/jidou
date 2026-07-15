@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: threadflow-oauth
+    runtime: node
+    plan: free
+    buildCommand: echo "No build required"
+    startCommand: node render-server.mjs
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
