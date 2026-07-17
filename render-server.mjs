@@ -37,9 +37,18 @@ async function readJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
-async function threadsMe() {
-  const token = process.env.THREADS_ACCESS_TOKEN;
-  const userId = process.env.THREADS_USER_ID;
+function credentialsFor(accountKey = "ai_gal_mama") {
+  const accounts = {
+    ai_gal_mama: { token: process.env.THREADS_ACCESS_TOKEN, userId: process.env.THREADS_USER_ID },
+    ouchiwork_mari: { token: process.env.THREADS_ACCESS_TOKEN_OUCHIWORK_MARI, userId: process.env.THREADS_USER_ID_OUCHIWORK_MARI },
+  };
+  const credentials = accounts[accountKey];
+  if (!credentials) throw new Error("選択されたThreadsアカウントは登録されていません。");
+  return credentials;
+}
+
+async function threadsMe(accountKey) {
+  const { token, userId } = credentialsFor(accountKey);
   if (!token || !userId) throw new Error("Threads APIの秘密情報が未設定です。");
   const response = await fetch("https://graph.threads.net/v1.0/me?fields=id,username", {
     headers: { Authorization: `Bearer ${token}` },
@@ -50,8 +59,8 @@ async function threadsMe() {
 }
 
 async function publishThreads(origin, body) {
-  const token = process.env.THREADS_ACCESS_TOKEN;
-  const userId = process.env.THREADS_USER_ID;
+  const accountKey = String(body.accountKey || "ai_gal_mama");
+  const { token, userId } = credentialsFor(accountKey);
   const text = String(body.text || "").trim();
   if (!token || !userId) throw new Error("Threads APIの秘密情報が未設定です。");
   if (!text || text.length > 500) throw new Error("投稿文は1〜500文字で入力してください。");
@@ -119,8 +128,9 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/threads/status" && req.method === "GET") {
     if (!authorized(req)) return json(res, 401, { connected: false, error: "Unauthorized" });
     try {
-      const account = await threadsMe();
-      return json(res, 200, { connected: true, username: account.username });
+      const accountKey = url.searchParams.get("account") || "ai_gal_mama";
+      const account = await threadsMe(accountKey);
+      return json(res, 200, { connected: true, accountKey, username: account.username });
     } catch (error) {
       return json(res, 503, { connected: false, error: error instanceof Error ? error.message : "接続を確認できませんでした。" });
     }

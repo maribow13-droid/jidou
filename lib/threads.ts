@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { AccountKey } from "./accounts";
 
 type ThreadsEnv = {
   THREADS_ACCESS_TOKEN?: string;
@@ -8,6 +9,7 @@ type ThreadsEnv = {
 };
 
 type PublishInput = {
+  accountKey: AccountKey;
   text: string;
   imageUrl?: string | null;
   imageBase64?: string | null;
@@ -25,6 +27,7 @@ export async function publishToThreads(input: PublishInput) {
         Authorization: `Bearer ${runtime.THREADS_BRIDGE_SECRET}`,
       },
       body: JSON.stringify({
+        accountKey: input.accountKey,
         text: input.text,
         imageUrl: input.imageUrl ?? undefined,
         imageBase64: input.imageBase64 ?? undefined,
@@ -39,6 +42,7 @@ export async function publishToThreads(input: PublishInput) {
   if (!runtime.THREADS_ACCESS_TOKEN || !runtime.THREADS_USER_ID) {
     throw new Error("Threads APIの接続設定が未完了です。");
   }
+  if (input.accountKey !== "ai_gal_mama") throw new Error("このアカウントは投稿サービス経由でのみ利用できます。");
 
   const endpoint = `https://graph.threads.net/v1.0/${runtime.THREADS_USER_ID}`;
   const createBody = new URLSearchParams({ text: input.text, access_token: runtime.THREADS_ACCESS_TOKEN });

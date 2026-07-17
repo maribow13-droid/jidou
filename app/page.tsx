@@ -26,9 +26,17 @@ type Settings = {
 
 type Connection = {
   connected: boolean;
+  accountKey?: string;
   username?: string;
   error?: string;
 };
+
+type AccountKey = "ai_gal_mama" | "ouchiwork_mari";
+
+const accountOptions: Array<{ key: AccountKey; username: string; description: string }> = [
+  { key: "ai_gal_mama", username: "ai_gal_mama", description: "ギャルママ発信" },
+  { key: "ouchiwork_mari", username: "ouchiwork_mari", description: "おうちワーク発信" },
+];
 
 const initial: Settings = {
   enabled: false,
@@ -50,6 +58,7 @@ const labels = {
 };
 
 export default function Home() {
+  const [accountKey, setAccountKey] = useState<AccountKey>("ai_gal_mama");
   const [settings, setSettings] = useState(initial);
   const [posts, setPosts] = useState<Post[]>([]);
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -60,25 +69,36 @@ export default function Home() {
   const [testImage, setTestImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  async function refreshPosts() {
-    const response = await fetch("/api/posts");
+  const activeAccount = accountOptions.find((account) => account.key === accountKey) ?? accountOptions[0];
+
+  async function refreshPosts(key: AccountKey = accountKey) {
+    const response = await fetch(`/api/posts?account=${encodeURIComponent(key)}`);
     const data = await response.json();
     if (data.posts) setPosts(data.posts);
   }
 
   useEffect(() => {
+    let active = true;
+    setSettings(initial);
+    setPosts([]);
+    setConnection(null);
+    setNotice("");
     Promise.all([
-      fetch("/api/settings").then((response) => response.json()),
-      fetch("/api/posts").then((response) => response.json()),
-      fetch("/api/threads/status").then((response) => response.json()),
+      fetch(`/api/settings?account=${encodeURIComponent(accountKey)}`).then((response) => response.json()),
+      fetch(`/api/posts?account=${encodeURIComponent(accountKey)}`).then((response) => response.json()),
+      fetch(`/api/threads/status?account=${encodeURIComponent(accountKey)}`).then((response) => response.json()),
     ])
       .then(([settingsData, postsData, connectionData]) => {
+        if (!active) return;
         if (settingsData.settings) setSettings(settingsData.settings);
         if (postsData.posts) setPosts(postsData.posts);
         setConnection(connectionData);
       })
-      .catch(() => setConnection({ connected: false, error: "接続状態を確認できませんでした。" }));
-  }, []);
+      .catch(() => {
+        if (active) setConnection({ connected: false, error: "接続状態を確認できませんでした。" });
+      });
+    return () => { active = false; };
+  }, [accountKey]);
 
   useEffect(() => {
     return () => {
@@ -110,7 +130,7 @@ export default function Home() {
     setBusy(true);
     setNotice("");
     try {
-      const response = await fetch("/api/settings", {
+      const response = await fetch(`/api/settings?account=${encodeURIComponent(accountKey)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...settings, enabled }),
@@ -139,6 +159,7 @@ export default function Home() {
       form.set("text", testText.trim());
       form.set("scheduledAt", new Date().toISOString());
       form.set("publishNow", "true");
+      form.set("accountKey", accountKey);
       if (testImage) form.set("image", testImage);
 
       const response = await fetch("/api/posts", { method: "POST", body: form });
@@ -149,7 +170,7 @@ export default function Home() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       setNotice("Threadsへのテスト投稿が完了しました。");
-      await refreshPosts();
+      await refreshPosts(accountKey);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "投稿できませんでした。");
     } finally {
@@ -170,7 +191,7 @@ export default function Home() {
         <div className="account-card">
           <span className="avatar">TF</span>
           <div>
-            <strong>{connection?.username ? `@${connection.username}` : "Threadsアカウント"}</strong>
+            <strong>{connection?.username ? `@${connection.username}` : `@${activeAccount.username}`}</strong>
             <small className={connection?.connected ? "connected" : "disconnected"}><i />{connection === null ? "確認中" : connection.connected ? "接続済み" : "未接続"}</small>
           </div>
         </div>
@@ -186,12 +207,33 @@ export default function Home() {
           <div className={`autopilot-state ${settings.enabled ? "on" : ""}`}><i /><span>{settings.enabled ? "自動運転中" : "停止中"}</span></div>
         </header>
 
+        <section className="account-switcher" aria-label="操作するThreadsアカウント">
+          <div>
+            <p className="eyebrow">THREADS ACCOUNTS</p>
+            <strong>操作するアカウント</strong>
+          </div>
+          <div className="account-switcher-options">
+            {accountOptions.map((account) => (
+              <button
+                className={account.key === accountKey ? "selected" : ""}
+                key={account.key}
+                onClick={() => setAccountKey(account.key)}
+                type="button"
+              >
+                <span className="account-dot" />
+                <span><strong>@{account.username}</strong><small>{account.description}</small></span>
+                {account.key === accountKey && <em>選択中</em>}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {notice && <div className="notice" role="status">{notice}<button aria-label="お知らせを閉じる" onClick={() => setNotice("")}>×</button></div>}
 
         <section className={`connection-banner ${connection?.connected ? "is-connected" : ""}`} id="settings">
           <div className="connection-icon">{connection?.connected ? "✓" : "…"}</div>
           <div>
-            <strong>{connection === null ? "Threadsの接続を確認しています" : connection.connected ? `@${connection.username ?? "Threads"} と連携済み` : "Threadsの接続設定が必要です"}</strong>
+            <strong>{connection === null ? `@${activeAccount.username} の接続を確認しています` : connection.connected ? `@${connection.username ?? activeAccount.username} と連携済み` : `@${activeAccount.username} の接続設定が必要です`}</strong>
             <small>{connection?.connected ? "管理画面から投稿と自動運転を利用できます。" : connection?.error ?? "秘密情報を設定すると投稿できるようになります。"}</small>
           </div>
           <span className="api-chip">Threads API</span>
@@ -199,7 +241,7 @@ export default function Home() {
 
         <section className="panel test-panel" id="test-post">
           <div className="panel-title">
-            <div><p className="eyebrow">CONNECTION TEST</p><h2>Threadsへテスト投稿</h2><p>文章だけでも、画像付きでも投稿できます。最初は短い文章での確認がおすすめです。</p></div>
+            <div><p className="eyebrow">CONNECTION TEST</p><h2>@{activeAccount.username} へテスト投稿</h2><p>文章だけでも、画像付きでも投稿できます。選択中のアカウントに投稿されます。</p></div>
             <span className="step-badge">TEST</span>
           </div>
           <form className="test-composer" onSubmit={publishTest}>

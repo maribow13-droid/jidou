@@ -2,13 +2,15 @@ import { desc, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getDb } from "../../../db";
 import { posts } from "../../../db/schema";
+import { getThreadsAccount } from "../../../lib/accounts";
 import { publishToThreads } from "../../../lib/threads";
 
 type MediaEnv = { MEDIA: R2Bucket };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const rows = await getDb().select().from(posts).orderBy(desc(posts.createdAt)).limit(100);
+    const account = getThreadsAccount(new URL(request.url).searchParams.get("account"));
+    const rows = await getDb().select().from(posts).where(eq(posts.accountKey, account.key)).orderBy(desc(posts.createdAt)).limit(100);
     return Response.json({ posts: rows });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "投稿一覧を取得できませんでした。" }, { status: 500 });
@@ -18,6 +20,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
+    const account = getThreadsAccount(form.get("accountKey"));
     const text = String(form.get("text") ?? "").trim();
     const scheduledAt = String(form.get("scheduledAt") ?? "");
     const publishNow = form.get("publishNow") === "true";
@@ -41,11 +44,11 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
-    const [post] = await db.insert(posts).values({ text, scheduledAt, imageKey, imageUrl, status: publishNow ? "draft" : "scheduled" }).returning();
+    const [post] = await db.insert(posts).values({ accountKey: account.key, text, scheduledAt, imageKey, imageUrl, status: publishNow ? "draft" : "scheduled" }).returning();
     if (!publishNow) return Response.json({ post }, { status: 201 });
 
     try {
-      const published = await publishToThreads({ text, imageUrl, imageBase64, imageContentType });
+      const published = await publishToThreads({ accountKey: account.key, text, imageUrl, imageBase64, imageContentType });
       const [updated] = await db.update(posts).set({ status: "published", threadsPostId: published.id, publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).where(eq(posts.id, post.id)).returning();
       return Response.json({ post: updated }, { status: 201 });
     } catch (error) {

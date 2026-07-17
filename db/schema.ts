@@ -3,6 +3,7 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const posts = sqliteTable("posts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  accountKey: text("account_key").notNull().default("ai_gal_mama"),
   text: text("text").notNull(),
   scheduledAt: text("scheduled_at").notNull(),
   status: text("status", { enum: ["draft", "scheduled", "published", "failed"] }).notNull().default("scheduled"),
@@ -18,6 +19,7 @@ export const posts = sqliteTable("posts", {
 
 export const accountSettings = sqliteTable("account_settings", {
   id: integer("id").primaryKey().default(1),
+  accountKey: text("account_key").notNull().default("ai_gal_mama"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
   theme: text("theme").notNull().default(""),
   audience: text("audience").notNull().default(""),
