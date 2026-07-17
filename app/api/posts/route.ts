@@ -27,12 +27,17 @@ export async function POST(request: Request) {
 
     let imageKey: string | null = null;
     let imageUrl: string | null = null;
+    let imageBase64: string | null = null;
+    let imageContentType: string | null = null;
     if (image instanceof File && image.size) {
       if (image.size > 10 * 1024 * 1024) return Response.json({ error: "画像は10MB以下にしてください。" }, { status: 400 });
       if (!/^image\/(jpeg|png|webp)$/.test(image.type)) return Response.json({ error: "JPG・PNG・WEBP画像を選択してください。" }, { status: 400 });
       imageKey = `posts/${crypto.randomUUID()}-${image.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      await (env as unknown as MediaEnv).MEDIA.put(imageKey, image.stream(), { httpMetadata: { contentType: image.type } });
+      const bytes = new Uint8Array(await image.arrayBuffer());
+      await (env as unknown as MediaEnv).MEDIA.put(imageKey, bytes, { httpMetadata: { contentType: image.type } });
       imageUrl = new URL(`/api/media/${encodeURIComponent(imageKey)}`, request.url).toString();
+      imageBase64 = bytesToBase64(bytes);
+      imageContentType = image.type;
     }
 
     const db = getDb();
@@ -40,7 +45,7 @@ export async function POST(request: Request) {
     if (!publishNow) return Response.json({ post }, { status: 201 });
 
     try {
-      const published = await publishToThreads({ text, imageUrl });
+      const published = await publishToThreads({ text, imageUrl, imageBase64, imageContentType });
       const [updated] = await db.update(posts).set({ status: "published", threadsPostId: published.id, publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).where(eq(posts.id, post.id)).returning();
       return Response.json({ post: updated }, { status: 201 });
     } catch (error) {
@@ -51,4 +56,13 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "保存に失敗しました。" }, { status: 500 });
   }
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
 }
