@@ -1,4 +1,5 @@
 const THREADFLOW = {
+  spreadsheetId: "1zCT_rpCfFsfNxC6KvFUu1EhlX3qSRPVcMjmr0klY9bc",
   settingsSheet: "アカウント設定",
   profileSheet: "投稿プロフィール",
   queueSheet: "投稿キュー",
@@ -38,8 +39,7 @@ function configureThreadFlow() {
 
 function installThreadFlowTrigger() {
   removeThreadFlowTriggers();
-  ScriptApp.newTrigger("runThreadFlow").timeBased().everyMinutes(15).create();
-  SpreadsheetApp.getUi().alert("15分ごとの自動実行を開始しました。");
+  return ScriptApp.newTrigger("runThreadFlow").timeBased().everyMinutes(15).create();
 }
 
 function removeThreadFlowTriggers() {
@@ -49,7 +49,7 @@ function removeThreadFlowTriggers() {
 }
 
 function runThreadFlow() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SpreadsheetApp.openById(THREADFLOW.spreadsheetId);
   const settingsSheet = spreadsheet.getSheetByName(THREADFLOW.settingsSheet);
   if (!settingsSheet) throw new Error("アカウント設定シートが見つかりません。");
 
