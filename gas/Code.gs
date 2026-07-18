@@ -26,9 +26,12 @@ function configureThreadFlow() {
   const siteUrl = (urlPrompt.getResponseText() || currentUrl).replace(/\/$/, "");
   const secretPrompt = ui.prompt("自動実行キー", "管理画面と同じ自動実行キーを入力してください。", ui.ButtonSet.OK_CANCEL);
   if (secretPrompt.getSelectedButton() !== ui.Button.OK || !secretPrompt.getResponseText().trim()) return;
+  const accessPrompt = ui.prompt("管理画面アクセスキー", "非公開の管理画面へ接続するアクセスキーを入力してください。", ui.ButtonSet.OK_CANCEL);
+  if (accessPrompt.getSelectedButton() !== ui.Button.OK || !accessPrompt.getResponseText().trim()) return;
   properties.setProperties({
     THREADFLOW_SITE_URL: siteUrl,
     THREADFLOW_CRON_SECRET: secretPrompt.getResponseText().trim(),
+    THREADFLOW_SITES_TOKEN: accessPrompt.getResponseText().trim(),
   });
   ui.alert("接続設定を保存しました。キーはシートのセルには保存されません。");
 }
@@ -53,7 +56,9 @@ function runThreadFlow() {
   const properties = PropertiesService.getScriptProperties();
   const siteUrl = (properties.getProperty("THREADFLOW_SITE_URL") || THREADFLOW.defaultSiteUrl).replace(/\/$/, "");
   const secret = properties.getProperty("THREADFLOW_CRON_SECRET");
+  const sitesToken = properties.getProperty("THREADFLOW_SITES_TOKEN");
   if (!secret) throw new Error("ThreadFlowメニューの「接続設定」から自動実行キーを保存してください。");
+  if (!sitesToken) throw new Error("ThreadFlowメニューの「接続設定」から管理画面アクセスキーを保存してください。");
 
   const profileMap = readProfileMap_(spreadsheet);
   const table = readTable_(settingsSheet);
@@ -83,7 +88,10 @@ function runThreadFlow() {
     const response = UrlFetchApp.fetch(`${siteUrl}/api/cron/publish`, {
       method: "post",
       contentType: "application/json",
-      headers: { Authorization: `Bearer ${secret}` },
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "OAI-Sites-Authorization": `Bearer ${sitesToken}`,
+      },
       payload: JSON.stringify({ profiles }),
       muteHttpExceptions: true,
     });
