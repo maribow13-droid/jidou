@@ -20,6 +20,7 @@ type Settings = {
   postsPerWeek: number;
   postingTime: string;
   imageMode: string;
+  imageUrl?: string | null;
   reviewMode: boolean;
   nextRunAt?: string | null;
 };
@@ -64,6 +65,7 @@ export default function Home() {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [busy, setBusy] = useState(false);
   const [testBusy, setTestBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [testText, setTestText] = useState("");
   const [testImage, setTestImage] = useState<File | null>(null);
@@ -138,7 +140,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setSettings(data.settings);
-      setNotice(enabled ? "自動運転を開始しました。次の投稿からAIにおまかせできます。" : "設定を保存しました。");
+      setNotice(enabled ? "無料の自動運転を開始しました。次の投稿から料金なしで文章を作成します。" : "設定を保存しました。");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "保存できませんでした。");
     } finally {
@@ -178,12 +180,50 @@ export default function Home() {
     }
   }
 
+  async function uploadAutoImage(event: ChangeEvent<HTMLInputElement>) {
+    const image = event.target.files?.[0];
+    if (!image) return;
+    setImageBusy(true);
+    setNotice("");
+    try {
+      const form = new FormData();
+      form.set("accountKey", accountKey);
+      form.set("image", image);
+      const response = await fetch("/api/settings/image", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "画像を登録できませんでした。");
+      setSettings(data.settings);
+      setNotice("自動投稿で使う画像を登録しました。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "画像を登録できませんでした。");
+    } finally {
+      setImageBusy(false);
+      event.target.value = "";
+    }
+  }
+
+  async function removeAutoImage() {
+    setImageBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/settings/image?account=${encodeURIComponent(accountKey)}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "画像を削除できませんでした。");
+      setSettings(data.settings);
+      setNotice("自動投稿の登録画像を削除しました。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "画像を削除できませんでした。");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">S</span><span>ThreadFlow</span></div>
         <nav aria-label="メニュー">
-          <a className="active" href="#automation"><span>✦</span>AI自動運転</a>
+          <a className="active" href="#automation"><span>✦</span>無料自動運転</a>
           <a href="#test-post"><span>↗</span>テスト投稿</a>
           <a href="#history"><span>◷</span>投稿履歴</a>
           <a href="#settings"><span>⚙</span>連携設定</a>
@@ -200,9 +240,9 @@ export default function Home() {
       <section className="content" id="automation">
         <header>
           <div>
-            <p className="eyebrow">AI AUTOPILOT</p>
-            <h1>あなたらしい発信を、AIにまかせる。</h1>
-            <p>テーマと口調を一度決めれば、企画・作成・投稿まで自動で続きます。</p>
+            <p className="eyebrow">FREE AUTOPILOT</p>
+            <h1>追加料金なしで、自動投稿。</h1>
+            <p>テーマと口調をもとに、無料テンプレートが文章を組み立てて投稿します。</p>
           </div>
           <div className={`autopilot-state ${settings.enabled ? "on" : ""}`}><i /><span>{settings.enabled ? "自動運転中" : "停止中"}</span></div>
         </header>
@@ -262,7 +302,7 @@ export default function Home() {
 
         <div className="autopilot-grid">
           <section className="panel profile-panel">
-            <div className="panel-title"><div><p className="eyebrow">ACCOUNT PROFILE</p><h2>発信の設計図</h2><p>AIが迷わないように、アカウントの軸を教えてください。</p></div><span className="step-badge">STEP 1</span></div>
+            <div className="panel-title"><div><p className="eyebrow">ACCOUNT PROFILE</p><h2>発信の設計図</h2><p>無料テンプレートに、アカウントの軸を教えてください。</p></div><span className="step-badge">STEP 1</span></div>
             <div className="form-grid">
               <label className="wide"><span>アカウントのテーマ</span><textarea value={settings.theme} onChange={(event) => update("theme", event.target.value)} placeholder="例：40代からの無理をしない健康習慣。食事・睡眠・軽い運動を、実体験を交えて発信する。" /></label>
               <label><span>届けたい相手</span><input value={settings.audience} onChange={(event) => update("audience", event.target.value)} placeholder="例：忙しくて健康が後回しの40〜50代" /></label>
@@ -271,8 +311,8 @@ export default function Home() {
             </div>
           </section>
           <aside className="panel voice-preview">
-            <p className="eyebrow">VOICE PREVIEW</p><h2>AIが理解しているあなた</h2>
-            <div className="quote"><span>“</span><p>{settings.theme || "テーマを入力すると、AIがここに発信方針をまとめます。"}</p></div>
+            <p className="eyebrow">VOICE PREVIEW</p><h2>自動投稿に反映する内容</h2>
+            <div className="quote"><span>“</span><p>{settings.theme || "テーマを入力すると、無料テンプレートが発信内容に反映します。"}</p></div>
             <dl><div><dt>読者</dt><dd>{settings.audience || "未設定"}</dd></div><div><dt>話し方</dt><dd>{settings.tone}</dd></div></dl>
             <button className="secondary" onClick={() => save(false)} disabled={busy}>設計図を保存</button>
           </aside>
@@ -283,12 +323,21 @@ export default function Home() {
           <div className="automation-options">
             <label><span>1日の投稿数（最大10件）</span><select value={settings.postsPerWeek} onChange={(event) => update("postsPerWeek", Number(event.target.value))}>{Array.from({ length: 10 }, (_, index) => <option key={index + 1} value={index + 1}>1日 {index + 1} 投稿</option>)}</select></label>
             <label><span>最初の投稿時間</span><input type="time" value={settings.postingTime} onChange={(event) => update("postingTime", event.target.value)} /></label>
-            <label><span>画像</span><select value={settings.imageMode} onChange={(event) => update("imageMode", event.target.value)}><option value="auto">AIが必要な時だけ作成</option><option value="none">画像なし</option></select></label>
+            <label><span>画像</span><select value={settings.imageMode} onChange={(event) => update("imageMode", event.target.value)}><option value="auto">登録画像を毎回使う</option><option value="none">画像なし</option></select></label>
             <label className="review-toggle"><span>投稿前の確認</span><button className={settings.reviewMode ? "selected" : ""} onClick={() => update("reviewMode", !settings.reviewMode)} type="button"><i />{settings.reviewMode ? "確認してから投稿" : "完全自動で投稿"}</button></label>
           </div>
+          {settings.imageMode === "auto" && (
+            <div className="auto-image-box">
+              {settings.imageUrl ? <img src={settings.imageUrl} alt="自動投稿で使用する登録画像" /> : <div><span>＋</span><strong>自動投稿用の画像を1枚登録</strong><small>同じ画像を繰り返し使います。あとで差し替えできます。</small></div>}
+              <div className="auto-image-actions">
+                <label className="secondary">{imageBusy ? "処理中…" : settings.imageUrl ? "画像を差し替える" : "画像を選ぶ"}<input disabled={imageBusy} type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadAutoImage} /></label>
+                {settings.imageUrl && <button className="remove-image" disabled={imageBusy} type="button" onClick={removeAutoImage}>画像を削除</button>}
+              </div>
+            </div>
+          )}
           <div className="launch-row">
-            <div><strong>{settings.enabled ? `1日${settings.postsPerWeek}件のペースで自動発信中` : "準備ができたら、自動運転を開始"}</strong><small>{settings.reviewMode ? "AIが下書きを作り、あなたの確認後に投稿します。" : `AIが内容を考え、約${Math.max(1, Math.floor(24 / settings.postsPerWeek))}時間おきにThreadsへ投稿します。`}</small></div>
-            <button className={settings.enabled ? "stop-button" : "primary launch"} onClick={() => save(!settings.enabled)} disabled={busy || !connection?.connected}>{busy ? "設定中…" : settings.enabled ? "自動運転を停止" : "AI自動運転を開始 →"}</button>
+            <div><strong>{settings.enabled ? `1日${settings.postsPerWeek}件のペースで無料自動発信中` : "準備ができたら、無料自動運転を開始"}</strong><small>{settings.reviewMode ? "無料テンプレートが下書きを作り、あなたの確認後に投稿します。" : `無料テンプレートが文章を作り、約${Math.max(1, Math.floor(24 / settings.postsPerWeek))}時間おきにThreadsへ投稿します。`}</small></div>
+            <button className={settings.enabled ? "stop-button" : "primary launch"} onClick={() => save(!settings.enabled)} disabled={busy || !connection?.connected}>{busy ? "設定中…" : settings.enabled ? "自動運転を停止" : "無料自動運転を開始 →"}</button>
           </div>
         </section>
 
@@ -299,7 +348,7 @@ export default function Home() {
         </div>
 
         <section className="panel history-panel" id="history">
-          <div className="panel-title"><div><p className="eyebrow">RECENT POSTS</p><h2>AIが作成した投稿</h2></div></div>
+          <div className="panel-title"><div><p className="eyebrow">RECENT POSTS</p><h2>自動作成した投稿</h2></div></div>
           <div className="post-table">
             {posts.slice(0, 6).map((post) => <article key={post.id}><span className={`status ${post.status}`}>{labels[post.status]}</span><p>{post.text}</p><time>{new Date(post.scheduledAt).toLocaleString("ja-JP")}</time></article>)}
             {!posts.length && <div className="empty"><span>✦</span><p>テスト投稿や自動運転を始めると、ここに投稿が並びます。</p></div>}

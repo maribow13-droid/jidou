@@ -3,7 +3,7 @@ import { getDb } from "../../../db";
 import { accountSettings } from "../../../db/schema";
 import { getThreadsAccount } from "../../../lib/accounts";
 
-const defaults = { enabled: false, theme: "", audience: "", tone: "親しみやすく、誠実", rules: "", postsPerWeek: 1, postingTime: "08:00", imageMode: "auto", reviewMode: false, nextRunAt: null };
+const defaults = { enabled: false, theme: "", audience: "", tone: "親しみやすく、誠実", rules: "", postsPerWeek: 1, postingTime: "08:00", imageMode: "auto", imageUrl: null as string | null, reviewMode: false, nextRunAt: null };
 
 export async function GET(request: Request) {
   try {
