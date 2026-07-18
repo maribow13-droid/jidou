@@ -1,0 +1,25 @@
+name: ThreadFlow scheduler
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: threadflow-scheduler
+  cancel-in-progress: false
+
+jobs:
+  publish-due-posts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run due Threads posts
+        env:
+          CRON_SECRET: ${{ secrets.THREADFLOW_CRON_SECRET }}
+          SITES_BYPASS_TOKEN: ${{ secrets.THREADFLOW_SITES_BYPASS_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "OAI-Sites-Authorization: Bearer ${SITES_BYPASS_TOKEN}" \
+            https://threadflow-jp-studio.maaaton.chatgpt.site/api/cron/publish
